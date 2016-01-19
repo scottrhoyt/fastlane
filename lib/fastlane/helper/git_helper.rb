@@ -1,7 +1,10 @@
 module Fastlane
   module Actions
-    def self.git_log_between(pretty_format, from, to)
-      Actions.sh("git log --pretty=\"#{pretty_format}\" #{from.shellescape}...#{to.shellescape}", log: false).chomp
+    def self.git_log_between(pretty_format, from, to, include_merges)
+      command = 'git log'
+      command << " --pretty=\"#{pretty_format}\" #{from.shellescape}...#{to.shellescape}"
+      command << " --no-merges" unless include_merges
+      Actions.sh(command, log: false).chomp
     rescue
       nil
     end
@@ -9,7 +12,7 @@ module Fastlane
     def self.last_git_tag_name(match_lightweight = true)
       command = ['git describe']
       command << '--tags' if match_lightweight
-      command << '--abbrev=0'
+      command << '`git rev-list --tags --max-count=1`'
       Actions.sh(command.join(' '), log: false).chomp
     rescue
       nil

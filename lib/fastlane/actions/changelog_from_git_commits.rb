@@ -16,7 +16,7 @@ module Fastlane
 
         Helper.log.info "Collecting Git commits between #{from} and #{to}".green
 
-        changelog = Actions.git_log_between(params[:pretty], from, to)
+        changelog = Actions.git_log_between(params[:pretty], from, to, params[:include_merges])
         changelog = changelog.gsub("\n\n", "\n") if changelog # as there are duplicate newlines
         Actions.lane_context[SharedValues::FL_CHANGELOG] = changelog
 
@@ -48,6 +48,7 @@ module Fastlane
                                        is_string: false,
                                        verify_block: proc do |value|
                                          raise ":between must be of type array".red unless value.kind_of?(Array)
+                                         raise ":between must not contain nil values".red if value.any?(&:nil?)
                                          raise ":between must be an array of size 2".red unless (value || []).size == 2
                                        end),
           FastlaneCore::ConfigItem.new(key: :pretty,
@@ -59,6 +60,12 @@ module Fastlane
           FastlaneCore::ConfigItem.new(key: :match_lightweight_tag,
                                        env_name: 'FL_CHANGELOG_FROM_GIT_COMMITS_MATCH_LIGHTWEIGHT_TAG',
                                        description: 'Whether or not to match a lightweight tag when searching for the last one',
+                                       optional: true,
+                                       default_value: true,
+                                       is_string: false),
+          FastlaneCore::ConfigItem.new(key: :include_merges,
+                                       env_name: 'FL_CHANGELOG_FROM_GIT_COMMITS_INCLUDE_MERGES',
+                                       description: 'Whether or not to include any commits that are merges',
                                        optional: true,
                                        default_value: true,
                                        is_string: false)
