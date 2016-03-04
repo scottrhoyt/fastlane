@@ -19,6 +19,10 @@ module Fastlane
         if options[:dsym]
           dsym_filename = options[:dsym]
         else
+          if options[:ipa].to_s.length == 0
+            UI.user_error!("You have to provide an ipa file")
+          end
+
           dsym_path = options[:ipa].gsub('ipa', 'app.dSYM.zip')
           if File.exist?(dsym_path)
             dsym_filename = dsym_path
@@ -54,7 +58,11 @@ module Fastlane
           Helper.log.info "Public Download URL: #{url}" if url
           Helper.log.info 'Build successfully uploaded to HockeyApp!'.green
         else
-          raise "Error when trying to upload ipa to HockeyApp: #{response.body}".red
+          if response.body.to_s.include?("App could not be created")
+            raise "Hockey has an issue processing this app. Please confirm that an app in Hockey matches this IPA's bundle ID or that you are using the correct API upload token. If error persists, please provide the :public_identifier option from the HockeyApp website. More information https://github.com/fastlane/fastlane/issues/400"
+          else
+            raise "Error when trying to upload ipa to HockeyApp: #{response.body}".red
+          end
         end
       end
 
@@ -74,6 +82,7 @@ module Fastlane
                                        env_name: "FL_HOCKEY_IPA",
                                        description: "Path to your IPA file. Optional if you use the `gym` or `xcodebuild` action. For Mac zip the .app. For Android provide path to .apk file",
                                        default_value: Actions.lane_context[SharedValues::IPA_OUTPUT_PATH],
+                                       optional: true,
                                        verify_block: proc do |value|
                                          raise "Couldn't find ipa file at path '#{value}'".red unless File.exist?(value)
                                        end),
@@ -141,7 +150,11 @@ module Fastlane
                                       env_name: "FL_HOCKEY_UPLOAD_DSYM_ONLY",
                                       description: "Flag to upload only the dSYM file to hockey app",
                                       is_string: false,
-                                      default_value: false)
+                                      default_value: false),
+          FastlaneCore::ConfigItem.new(key: :owner_id,
+                                      env_name: "FL_HOCKEY_OWNER_ID",
+                                      description: "ID for the owner of the app",
+                                      optional: true)
         ]
       end
 

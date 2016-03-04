@@ -1,4 +1,3 @@
-# rubocop:disable Metrics/PerceivedComplexity
 # rubocop:disable Metrics/AbcSize
 require 'fastlane/erb_template_helper'
 require 'ostruct'
@@ -85,15 +84,25 @@ module Fastlane
         url_part = expand_path_with_substitutions_from_ipa_plist( ipa_file, s3_path )
         ipa_file_name = File.basename(ipa_file)
         ipa_url = "https://#{s3_subdomain}.amazonaws.com/#{s3_bucket}/#{url_part}#{ipa_file_name}"
-        dsym_url = "https://#{s3_subdomain}.amazonaws.com/#{s3_bucket}/#{url_part}#{dsym_file}" if dsym_file
 
         # Setting action and environment variables
         Actions.lane_context[SharedValues::S3_IPA_OUTPUT_PATH] = ipa_url
         ENV[SharedValues::S3_IPA_OUTPUT_PATH.to_s] = ipa_url
 
         if dsym_file
-          Actions.lane_context[SharedValues::S3_DSYM_OUTPUT_PATH] = dsym_url
-          ENV[SharedValues::S3_DSYM_OUTPUT_PATH.to_s] = dsym_url
+          dsym_file_basename = File.basename(dsym_file)
+          dsym_file_name = "#{url_part}#{dsym_file_basename}"
+          dsym_file_data = File.open(dsym_file, 'rb')
+
+          upload_dsym(
+            s3_access_key,
+            s3_secret_access_key,
+            s3_bucket,
+            s3_region,
+            dsym_file_name,
+            dsym_file_data
+          )
+
         end
 
         if params[:upload_metadata] == false
@@ -107,7 +116,13 @@ module Fastlane
         #####################################
 
         # Gets info used for the plist
-        bundle_id, bundle_version, title, full_version = get_ipa_info(ipa_file)
+        info = FastlaneCore::IpaFileAnalyser.fetch_info_plist_file(ipa_file)
+
+        build_num = info['CFBundleVersion']
+        bundle_id = info['CFBundleIdentifier']
+        bundle_version = info['CFBundleShortVersionString']
+        title = info['CFBundleName']
+        full_version = "#{bundle_version}.#{build_num}"
 
         # Creating plist and html names
         plist_file_name = "#{url_part}#{title.delete(' ')}.plist"
@@ -128,6 +143,8 @@ module Fastlane
         end
         plist_render = eth.render(plist_template, {
           url: ipa_url,
+          ipa_url: ipa_url,
+          build_num: build_num,
           bundle_id: bundle_id,
           bundle_version: bundle_version,
           title: title
@@ -141,6 +158,9 @@ module Fastlane
         end
         html_render = eth.render(html_template, {
           url: plist_url,
+          plist_url: plist_url,
+          ipa_url: ipa_url,
+          build_num: build_num,
           bundle_id: bundle_id,
           bundle_version: bundle_version,
           title: title
@@ -154,6 +174,10 @@ module Fastlane
         end
         version_render = eth.render(version_template, {
           url: plist_url,
+          plist_url: plist_url,
+          ipa_url: ipa_url,
+          build_num: build_num,
+          bundle_version: bundle_version,
           full_version: full_version
         })
 
@@ -215,7 +239,17 @@ module Fastlane
         html_obj = bucket.objects.create(html_file_name, html_render.to_s, acl: :public_read)
         version_obj = bucket.objects.create(version_file_name, version_render.to_s, acl: :public_read)
 
-        # Setting actionand environment variables
+        # When you enable versioning on a S3 bucket,
+        # writing to an object will create an object version
+        # instead of replacing the existing object.
+        # http://docs.aws.amazon.com/AWSRubySDK/latest/AWS/S3/ObjectVersion.html
+        if plist_obj.kind_of? AWS::S3::ObjectVersion
+          plist_obj = plist_obj.object
+          html_obj = html_obj.object
+          version_obj = version_obj.object
+        end
+
+        # Setting action and environment variables
         Actions.lane_context[SharedValues::S3_PLIST_OUTPUT_PATH] = plist_obj.public_url.to_s
         ENV[SharedValues::S3_PLIST_OUTPUT_PATH.to_s] = plist_obj.public_url.to_s
 
@@ -225,7 +259,40 @@ module Fastlane
         Actions.lane_context[SharedValues::S3_VERSION_OUTPUT_PATH] = version_obj.public_url.to_s
         ENV[SharedValues::S3_VERSION_OUTPUT_PATH.to_s] = version_obj.public_url.to_s
 
-        Helper.log.info "Successfully uploaded ipa file to '#{html_obj.public_url}'".green
+        Helper.log.info "Successfully uploaded ipa file to '#{Actions.lane_context[SharedValues::S3_IPA_OUTPUT_PATH]}'".green
+      end
+
+      def self.upload_dsym(s3_access_key, s3_secret_access_key, s3_bucket, s3_region, dsym_file_name, dsym_file_data)
+        Actions.verify_gem!('aws-sdk')
+        require 'aws-sdk'
+        if s3_region
+          s3_client = AWS::S3.new(
+            access_key_id: s3_access_key,
+            secret_access_key: s3_secret_access_key,
+            region: s3_region
+          )
+        else
+          s3_client = AWS::S3.new(
+            access_key_id: s3_access_key,
+            secret_access_key: s3_secret_access_key
+          )
+        end
+
+        bucket = s3_client.buckets[s3_bucket]
+
+        dsym_obj = bucket.objects.create(dsym_file_name, dsym_file_data, acl: :public_read)
+
+        # When you enable versioning on a S3 bucket,
+        # writing to an object will create an object version
+        # instead of replacing the existing object.
+        # http://docs.aws.amazon.com/AWSRubySDK/latest/AWS/S3/ObjectVersion.html
+        if dsym_obj.kind_of? AWS::S3::ObjectVersion
+          dsym_obj = dsym_obj.object
+        end
+
+        # Setting action and environment variables
+        Actions.lane_context[SharedValues::S3_DSYM_OUTPUT_PATH] = dsym_obj.public_url.to_s
+        ENV[SharedValues::S3_DSYM_OUTPUT_PATH.to_s] = dsym_obj.public_url.to_s
       end
 
       #
@@ -240,37 +307,15 @@ module Fastlane
       def self.expand_path_with_substitutions_from_ipa_plist(ipa, path)
         substitutions = path.scan(/\{CFBundle[^}]+\}/)
         return path if substitutions.empty?
+        info = FastlaneCore::IpaFileAnalyser.fetch_info_plist_file(ipa) or return path
 
-        Dir.mktmpdir do |dir|
-          system "unzip -q #{ipa} -d #{dir} 2> /dev/null"
-
-          plist = Dir["#{dir}/**/*.app/Info.plist"].last
-
-          substitutions.uniq.each do |substitution|
-            key = substitution[1...-1]
-            value = Shenzhen::PlistBuddy.print(plist, key)
-
-            path.gsub!(Regexp.new(substitution), value) if value
-          end
+        substitutions.uniq.each do |substitution|
+          key = substitution[1...-1]
+          value = info[key]
+          path.gsub!(Regexp.new(substitution), value) if value
         end
 
         return path
-      end
-
-      def self.get_ipa_info(ipa_file)
-        bundle_id, bundle_version, title, full_version = nil
-        Dir.mktmpdir do |dir|
-          system "unzip -q #{ipa_file} -d #{dir} 2> /dev/null"
-          plist = Dir["#{dir}/**/*.app/Info.plist"].last
-
-          bundle_id = Shenzhen::PlistBuddy.print(plist, 'CFBundleIdentifier')
-          bundle_version = Shenzhen::PlistBuddy.print(plist, 'CFBundleShortVersionString')
-          title = Shenzhen::PlistBuddy.print(plist, 'CFBundleName')
-
-          # This is the string: {CFBundleShortVersionString}.{CFBundleVersion}
-          full_version = bundle_version + '.' + Shenzhen::PlistBuddy.print(plist, 'CFBundleVersion')
-        end
-        return bundle_id, bundle_version, title, full_version
       end
 
       def self.description
@@ -293,7 +338,8 @@ module Fastlane
                                        env_name: "",
                                        description: "Upload relevant metadata for this build",
                                        optional: true,
-                                       default_value: true),
+                                       default_value: true,
+                                       is_string: false),
           FastlaneCore::ConfigItem.new(key: :plist_template_path,
                                        env_name: "",
                                        description: "plist template path",
@@ -370,5 +416,4 @@ module Fastlane
     end
   end
 end
-# rubocop:enable Metrics/PerceivedComplexity
 # rubocop:enable Metrics/AbcSize

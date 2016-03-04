@@ -1,15 +1,23 @@
 module Fastlane
   module Actions
-    def self.git_log_between(pretty_format, from, to)
-      Actions.sh("git log --pretty=\"#{pretty_format}\" #{from.shellescape}...#{to.shellescape}", log: false).chomp
+    GIT_MERGE_COMMIT_FILTERING_OPTIONS = [:include_merges, :exclude_merges, :only_include_merges].freeze
+
+    def self.git_log_between(pretty_format, from, to, merge_commit_filtering)
+      command = 'git log'
+      command << " --pretty=\"#{pretty_format}\" #{from.shellescape}...#{to.shellescape}"
+      command << " --no-merges" if merge_commit_filtering == :exclude_merges
+      command << " --merges" if merge_commit_filtering == :only_include_merges
+      Actions.sh(command, log: false).chomp
     rescue
       nil
     end
 
-    def self.last_git_tag_name(match_lightweight = true)
+    def self.last_git_tag_name(match_lightweight = true, tag_match_pattern = nil)
+      tag_pattern_param = tag_match_pattern ? "=#{tag_match_pattern.shellescape}" : ''
+
       command = ['git describe']
       command << '--tags' if match_lightweight
-      command << '--abbrev=0'
+      command << "`git rev-list --tags#{tag_pattern_param} --max-count=1`"
       Actions.sh(command.join(' '), log: false).chomp
     rescue
       nil
@@ -20,7 +28,9 @@ module Fastlane
 
       {
           author: last_git_commit_formatted_with('%an'),
-          message: last_git_commit_formatted_with('%B')
+          message: last_git_commit_formatted_with('%B'),
+          commit_hash: last_git_commit_formatted_with('%H'),
+          abbreviated_commit_hash: last_git_commit_formatted_with('%h')
       }
     end
 

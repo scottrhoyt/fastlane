@@ -27,7 +27,9 @@ module Fastlane
 
         notifier = Slack::Notifier.new(options[:slack_url])
 
-        notifier.username = 'fastlane'
+        notifier.username = options[:use_webhook_configured_username_and_icon] ? nil : options[:username]
+        icon_url = options[:use_webhook_configured_username_and_icon] ? nil : options[:icon_url]
+
         if options[:channel].to_s.length > 0
           notifier.channel = options[:channel]
           notifier.channel = ('#' + notifier.channel) unless ['#', '@'].include?(notifier.channel[0]) # send message to channel by default
@@ -38,7 +40,7 @@ module Fastlane
         return [notifier, slack_attachment] if Helper.is_test? # tests will verify the slack attachments and other properties
 
         result = notifier.ping '',
-                               icon_url: 'https://s3-eu-west-1.amazonaws.com/fastlane.tools/fastlane.png',
+                               icon_url: icon_url,
                                attachments: [slack_attachment]
 
         if result.code.to_i == 200
@@ -63,12 +65,30 @@ module Fastlane
                                        env_name: "FL_SLACK_CHANNEL",
                                        description: "#channel or @username",
                                        optional: true),
+          FastlaneCore::ConfigItem.new(key: :use_webhook_configured_username_and_icon,
+                                       env_name: "FL_SLACK_USE_WEBHOOK_CONFIGURED_USERNAME_AND_ICON",
+                                       description: "Use webook's default username and icon settings? (true/false)",
+                                       default_value: false,
+                                       is_string: false,
+                                       optional: true),
           FastlaneCore::ConfigItem.new(key: :slack_url,
                                        env_name: "SLACK_URL",
                                        description: "Create an Incoming WebHook for your Slack group",
                                        verify_block: proc do |value|
                                          raise "Invalid URL, must start with https://" unless value.start_with? "https://"
                                        end),
+          FastlaneCore::ConfigItem.new(key: :username,
+                                       env_name: "FL_SLACK_USERNAME",
+                                       description: "Overrides the webook's username property if use_webhook_configured_username_and_icon is false",
+                                       default_value: "fastlane",
+                                       is_string: true,
+                                       optional: true),
+          FastlaneCore::ConfigItem.new(key: :icon_url,
+                                       env_name: "FL_SLACK_ICON_URL",
+                                       description: "Overrides the webook's image property if use_webhook_configured_username_and_icon is false",
+                                       default_value: "https://s3-eu-west-1.amazonaws.com/fastlane.tools/fastlane.png",
+                                       is_string: true,
+                                       optional: true),
           FastlaneCore::ConfigItem.new(key: :payload,
                                        env_name: "FL_SLACK_PAYLOAD",
                                        description: "Add additional information to this post. payload must be a hash containg any key with any value",

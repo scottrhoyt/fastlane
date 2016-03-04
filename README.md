@@ -21,14 +21,14 @@
 fastlane
 ============
 
-[![Twitter: @KauseFx](https://img.shields.io/badge/contact-@KrauseFx-blue.svg?style=flat)](https://twitter.com/KrauseFx)
+[![Twitter: @FastlaneTools](https://img.shields.io/badge/contact-@FastlaneTools-blue.svg?style=flat)](https://twitter.com/FastlaneTools)
 [![License](https://img.shields.io/badge/license-MIT-green.svg?style=flat)](https://github.com/fastlane/fastlane/blob/master/LICENSE)
 [![Gem](https://img.shields.io/gem/v/fastlane.svg?style=flat)](http://rubygems.org/gems/fastlane)
 [![Build Status](https://img.shields.io/travis/fastlane/fastlane/master.svg?style=flat)](https://travis-ci.org/fastlane/fastlane)
 
 ######*fastlane* lets you define and run your deployment pipelines for different environments. It helps you unify your apps release process and automate the whole process. fastlane connects all fastlane tools and third party tools, like [CocoaPods](https://cocoapods.org/) and [Slack](https://slack.com).
 
-Get in contact with the developer on Twitter: [@KrauseFx](https://twitter.com/KrauseFx)
+Get in contact with the developer on Twitter: [@FastlaneTools](https://twitter.com/FastlaneTools)
 
 -------
 <p align="center">
@@ -60,7 +60,7 @@ lane :appstore do
   cocoapods
   scan
   snapshot
-  sigh
+  match
   deliver
   sh "./customScript.sh"
 
@@ -76,7 +76,7 @@ fastlane appstore
 
               |  fastlane
 --------------------------|------------------------------------------------------------
-:sparkles: | Connect all iOS build tools into one workflow (both `fastlane` tools and third party tools)
+:sparkles: | Connect all iOS and Android build tools into one workflow (both `fastlane` tools and third party tools)
 :monorail: | Define different `deployment lanes` for App Store deployment, beta builds or testing
 :ship: | Deploy from any computer, including a CI-server
 :wrench: | Extend and customise the functionality 
@@ -89,8 +89,8 @@ fastlane appstore
 :mountain_cableway: | Implement a fully working Continuous Delivery process
 :ghost: | [Jenkins Integration](https://github.com/fastlane/fastlane/blob/master/docs/Jenkins.md): Show the output directly in the Jenkins test results
 :book: | Automatically generate a markdown documentation of your lane config
-:hatching_chick: | Over 90 built-in integrations available
-:computer: | Support for both iOS and Mac OS apps
+:hatching_chick: | Over 150 built-in integrations available
+:computer: | Support for both iOS, Mac OS and Android apps
 :octocat: | Full git and mercurial support
 
 
@@ -144,7 +144,6 @@ Usually you'll use fastlane by triggering individual lanes:
 - `fastlane action [action_name]`: Shows a more detailed description of an action
 - `fastlane lanes`: Lists all available lanes with description
 - `fastlane list`: Lists all available lanes without description
-- `fastlane docs`: Generates a markdown based documentation of all your lanes
 - `fastlane new_action`: Create a new action (integration) for fastlane  
 
 ## Examples
@@ -171,11 +170,11 @@ See how [Wikipedia](https://github.com/fastlane/examples#wikipedia-by-wikimedia-
 
 ## Statistics
 
-`fastlane` tracks the number of errors for each action to detect integration issues. The data will be sent to [fastlane-enhancer](https://github.com/fastlane/enhancer) and is available publicly.
+`fastlane` tracks the number of errors for each action to detect integration issues. The data will be sent to [fastlane-enhancer](https://github.com/fastlane/enhancer).
 
 You can easily opt-out by adding `opt_out_usage` to your `Fastfile` or by setting the environment variable `FASTLANE_OPT_OUT_USAGE`. To also disable update checks, set the `FASTLANE_SKIP_UPDATE_CHECK` variable.
 
-You can optionally submit crash reports, run `fastlane enable_crash_reporting` to get started. This makes resolving issues much easier and helps improving fastlane. [More information](https://github.com/fastlane/fastlane/releases/tag/1.33.3)
+You can optionally submit crash reports, run `fastlane enable_crash_reporting` to get started. This makes resolving issues much easier and helps improve fastlane. [More information](https://github.com/fastlane/fastlane/releases/tag/1.33.3)
 
 ## Credentials
 A detailed description about how `fastlane` stores your credentials is available on a [separate repo](https://github.com/fastlane/credentials_manager).
@@ -187,7 +186,11 @@ Please submit an issue on GitHub and provide information about your setup
 
 Thanks to all [contributors](https://github.com/fastlane/fastlane/graphs/contributors) for extending and improving `fastlane`. Check out the project pages of the other tools for more sponsors and contributors.
 
+## Code of Conduct
+
+Help us keep `fastlane` open and inclusive. Please read and follow our [Code of Conduct](https://github.com/fastlane/code-of-conduct).
+
 ## License
 This project is licensed under the terms of the MIT license. See the LICENSE file.
 
-> This project and all fastlane tools are in no way affiliated with Apple Inc. This project is open source under the MIT license, which means you have full access to the source code and can modify it to fit your own needs. All fastlane tools run on your own computer or server, so your credentials or other sensitive information will never leave your own computer. You are responsible for how you use fastlane tools.
+> This project and all fastlane tools are in no way affiliated with Apple Inc or Google. This project is open source under the MIT license, which means you have full access to the source code and can modify it to fit your own needs. All fastlane tools run on your own computer or server, so your credentials or other sensitive information will never leave your own computer. You are responsible for how you use fastlane tools.
